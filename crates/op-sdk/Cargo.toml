@@ -1,0 +1,14 @@
+[package]
+name = "op-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SDK for building OpenPeripheral addons"
+
+[dependencies]
+op-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }

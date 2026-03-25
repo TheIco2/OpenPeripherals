@@ -1,0 +1,52 @@
+[workspace]
+members = [
+    "crates/op-core",
+    "crates/op-addon",
+    "crates/op-ai",
+    "crates/op-sdk",
+    "app",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["OpenPeripheral Contributors"]
+repository = "https://github.com/OpenPeripheral/OpenPeripheral"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# USB / HID
+hidapi = "2.6"
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Dynamic loading
+libloading = "0.8"
+
+# File watching / paths
+notify = "7"
+dirs = "6"
+
+# Hashing / IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Internal crates
+op-core = { path = "crates/op-core" }
+op-addon = { path = "crates/op-addon" }
+op-ai = { path = "crates/op-ai" }
+op-sdk = { path = "crates/op-sdk" }

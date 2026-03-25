@@ -1,0 +1,22 @@
+[package]
+name = "openperipheral"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OpenPeripheral — universal peripheral customization"
+
+[[bin]]
+name = "openperipheral"
+path = "src/main.rs"
+
+[dependencies]
+op-core = { workspace = true }
+op-addon = { workspace = true }
+op-ai = { workspace = true }
+canvasx_runtime = { path = "../../Sentinel/sentinel-backend/CanvasX" }
+tokio = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
