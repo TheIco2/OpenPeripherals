@@ -7,10 +7,10 @@
 </head>
 <body>
     <include type="asset" src="css/style.css" />
-    <include type="asset" src="js/script.js" />
-    <include type="component" src="sidebar.html" />
-    <div class="page-content">
-        
+    <div class="app-layout">
+        <include type="component" src="sidebar.html" />
+        <page-content default="devices" />
     </div>
+    <include type="asset" src="js/script.js" />
 </body>
 </html>

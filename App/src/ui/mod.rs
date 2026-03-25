@@ -50,47 +50,18 @@ fn build_app_host() -> AppHost {
             .declare(NetworkAccess),
     );
 
+    // Single route: base.html is the template with sidebar + page-content.
+    // Individual pages (devices, addons, etc.) are loaded as content fragments
+    // inside the <page-content> container via data-navigate sidebar clicks.
     host.add_route(Route {
-        id: "devices".into(),
-        label: "Devices".into(),
+        id: "home".into(),
+        label: "Home".into(),
         icon: None,
-        source: PageSource::HtmlFile(pages::devices_page()),
+        source: PageSource::HtmlFile(pages::base_page()),
         separator: false,
     });
 
-    host.add_route(Route {
-        id: "addons".into(),
-        label: "Addons".into(),
-        icon: None,
-        source: PageSource::HtmlFile(pages::addons_page()),
-        separator: false,
-    });
-
-    host.add_route(Route {
-        id: "ai_learning".into(),
-        label: "AI Learning".into(),
-        icon: None,
-        source: PageSource::HtmlFile(pages::ai_learning_page()),
-        separator: false,
-    });
-
-    host.add_route(Route {
-        id: "profiles".into(),
-        label: "Profiles".into(),
-        icon: None,
-        source: PageSource::HtmlFile(pages::profiles_page()),
-        separator: false,
-    });
-
-    host.add_route(Route {
-        id: "settings".into(),
-        label: "Settings".into(),
-        icon: None,
-        source: PageSource::HtmlFile(pages::settings_page()),
-        separator: false,
-    });
-
-    host.navigate_to("devices");
+    host.navigate_to("home");
     host
 }
 
@@ -175,7 +146,11 @@ impl OpenPeripheralApp {
             match event {
                 AppEvent::NavigateTo(page_id) => {
                     log::info!("Navigated to: {page_id}");
-                    // Navigation already handled internally by AppHost.
+                    // If this page isn't active yet (UI-driven navigation),
+                    // perform the full navigation first.
+                    if self.host.active_page() != Some(&page_id) {
+                        self.host.navigate_to(&page_id);
+                    }
                     // Re-init JS runtime for the new page.
                     let w = ctx.size.0;
                     let h = ctx.size.1;
