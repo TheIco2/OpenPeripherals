@@ -7,6 +7,7 @@ pub enum DeviceType {
     Mouse,
     Headset,
     MousePad,
+    Tablet,
     SmartLight,
     Other(String),
 }
@@ -18,6 +19,7 @@ impl std::fmt::Display for DeviceType {
             Self::Mouse => write!(f, "Mouse"),
             Self::Headset => write!(f, "Headset"),
             Self::MousePad => write!(f, "Mouse Pad"),
+            Self::Tablet => write!(f, "Tablet"),
             Self::SmartLight => write!(f, "Smart Light"),
             Self::Other(name) => write!(f, "{name}"),
         }

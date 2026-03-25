@@ -5,6 +5,8 @@ members = [
     "crates/op-ai",
     "crates/op-sdk",
     "app",
+    "Server",
+    "Development",
 ]
 resolver = "2"
 
@@ -50,3 +52,4 @@ op-core = { path = "crates/op-core" }
 op-addon = { path = "crates/op-addon" }
 op-ai = { path = "crates/op-ai" }
 op-sdk = { path = "crates/op-sdk" }
+futures-util = "0.3"

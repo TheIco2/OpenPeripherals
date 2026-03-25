@@ -1,0 +1,325 @@
+/* ═══════════════════════════════════════════════════════
+   OpenPeripheral — Shared Styles
+   Loaded automatically by CanvasX as sibling style.css
+   ═══════════════════════════════════════════════════════ */
+
+/* ── App Layout ────────────────────────────────────── */
+
+.app-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Sidebar ───────────────────────────────────────── */
+
+.sidebar {
+  width: 220px;
+  background: #09090b;
+  border-right: 1px solid #1c1c22;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 14px;
+  border-bottom: 1px solid #1c1c22;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo {
+  width: 30px;
+  height: 30px;
+  background: #6366f1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.brand-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fafafa;
+  letter-spacing: -0.3px;
+}
+
+.collapse-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #71717a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Navigation ────────────────────────────────────── */
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.nav-item.active {
+  background: #18181b;
+  color: #fafafa;
+}
+
+.nav-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #71717a;
+}
+
+.nav-item.active .nav-icon {
+  background: #6366f1;
+  border: 1px solid #818cf8;
+  color: #ffffff;
+}
+
+.nav-text {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Sidebar Spacer (pushes footer to bottom) ──────── */
+
+.nav-spacer {
+  flex-grow: 1;
+}
+
+/* ── Sidebar Footer ────────────────────────────────── */
+
+.sidebar-bottom {
+  padding: 10px 8px 12px;
+  border-top: 1px solid #1c1c22;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bottom-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.bottom-btn {
+  flex-grow: 1;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #71717a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bottom-btn.active {
+  background: #1e1b4b;
+  border: 1px solid #4338ca;
+  color: #a5b4fc;
+}
+
+.clock-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #0f0f12;
+  border-radius: 7px;
+  border: 1px solid #1c1c22;
+}
+
+.clock-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: #52525b;
+  letter-spacing: 2px;
+}
+
+/* ── Content Area ──────────────────────────────────── */
+
+.page-content {
+  flex-grow: 1;
+  background: #121214;
+}
+
+/* ── Common Page Styles ────────────────────────────── */
+
+.page {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-lg {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #71717a;
+}
+
+.description {
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.actions-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #6366f1;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #818cf8;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: #18181b;
+  color: #a1a1aa;
+  border-radius: 6px;
+  border: 1px solid #27272a;
+  font-size: 13px;
+}
+
+.empty-state {
+  padding: 48px;
+  text-align: center;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  background: #18181b;
+}
+
+.empty-state p {
+  color: #a1a1aa;
+  font-size: 14px;
+}
+
+.hint {
+  color: #52525b;
+  font-size: 12px;
+}
+
+/* ── Cards ─────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+}
+
+/* ── Settings Rows ─────────────────────────────────── */
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+label {
+  font-size: 14px;
+  color: #d4d4d8;
+}
+
+.path-label {
+  font-size: 13px;
+  color: #71717a;
+}
+
+.about-text {
+  font-size: 13px;
+  color: #71717a;
+}
+
+.license-text {
+  color: #6366f1;
+}

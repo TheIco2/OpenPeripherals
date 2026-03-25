@@ -1,0 +1,11 @@
+id: example-device
+name: Example Device Addon
+version: "0.1.0"
+author: OpenPeripheral Contributors
+description: An example addon demonstrating the OpenPeripheral SDK
+supported_devices:
+  - vendor_id: 0x1234
+    product_ids: [0x5678]
+    name: Example RGB Keyboard
+    device_type: Keyboard
+library: example_device.dll

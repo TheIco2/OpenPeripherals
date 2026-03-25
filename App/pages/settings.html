@@ -1,0 +1,89 @@
+<div class="app-layout">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="brand-logo">OP</div>
+        <span class="brand-text">OpenPeripheral</span>
+      </div>
+      <div class="collapse-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-sidebar">‹</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-item" data-navigate="devices">
+        <div class="nav-icon">D</div>
+        <span class="nav-text">Devices</span>
+      </div>
+      <div class="nav-item" data-navigate="addons">
+        <div class="nav-icon">A</div>
+        <span class="nav-text">Addons</span>
+      </div>
+      <div class="nav-item" data-navigate="ai_learning">
+        <div class="nav-icon">AI</div>
+        <span class="nav-text">AI Learning</span>
+      </div>
+      <div class="nav-item" data-navigate="profiles">
+        <div class="nav-icon">P</div>
+        <span class="nav-text">Profiles</span>
+      </div>
+    </div>
+
+    <div class="nav-spacer"></div>
+
+    <div class="sidebar-bottom">
+      <div class="bottom-buttons">
+        <div class="bottom-btn active" data-navigate="settings"><span>S</span></div>
+        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-theme"><span>T</span></div>
+        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="notifications"><span>N</span></div>
+      </div>
+      <div class="clock-container">
+        <span class="clock-time" id="clock">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-lg">
+      <h1>Settings</h1>
+      <p class="subtitle">OpenPeripheral configuration</p>
+
+      <div class="settings-section">
+        <h2>General</h2>
+        <div class="setting-row">
+          <label>Start with Windows</label>
+          <input type="checkbox" id="setting-autostart" />
+        </div>
+        <div class="setting-row">
+          <label>Minimize to tray</label>
+          <input type="checkbox" id="setting-tray" />
+        </div>
+        <div class="setting-row">
+          <label>Check for addon updates</label>
+          <input type="checkbox" id="setting-update-check" />
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2>Addons Directory</h2>
+        <div class="setting-row">
+          <label class="path-label" data-bind id="addons-dir-label">~/.OpenPeripheral/addons</label>
+          <button class="btn-secondary">Browse</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2>Profiles Directory</h2>
+        <div class="setting-row">
+          <label class="path-label" data-bind id="profiles-dir-label">~/.OpenPeripheral/profiles</label>
+          <button class="btn-secondary">Browse</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2>About</h2>
+        <p class="about-text">OpenPeripheral v0.1.0</p>
+        <p class="about-text">Open-source universal peripheral customization</p>
+        <p class="about-text license-text">MIT License</p>
+      </div>
+    </div>
+  </div>
+</div>

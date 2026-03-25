@@ -65,6 +65,9 @@ pub fn generate_guide(device_type: &DeviceType) -> Vec<GuidedStep> {
         DeviceType::SmartLight => {
             steps.extend(smart_light_guide());
         }
+        DeviceType::Tablet => {
+            steps.extend(tablet_guide());
+        }
         DeviceType::Other(_) => {
             steps.extend(generic_guide());
         }
@@ -350,6 +353,46 @@ fn smart_light_guide() -> Vec<GuidedStep> {
             category: StepCategory::Brightness,
             capture_duration_ms: 2000,
             capture_during_action: false,
+        },
+    ]
+}
+
+fn tablet_guide() -> Vec<GuidedStep> {
+    vec![
+        GuidedStep {
+            id: "pen_hover".into(),
+            instruction: "Hover the pen about 1cm above the centre of the tablet. Press Continue when ready.".into(),
+            category: StepCategory::Custom("pressure".into()),
+            capture_duration_ms: 3000,
+            capture_during_action: true,
+        },
+        GuidedStep {
+            id: "pen_press_light".into(),
+            instruction: "Lightly touch the pen to the tablet surface. Press Continue when done.".into(),
+            category: StepCategory::Custom("pressure".into()),
+            capture_duration_ms: 3000,
+            capture_during_action: true,
+        },
+        GuidedStep {
+            id: "pen_press_hard".into(),
+            instruction: "Press the pen HARD onto the tablet surface. Press Continue when done.".into(),
+            category: StepCategory::Custom("pressure".into()),
+            capture_duration_ms: 3000,
+            capture_during_action: true,
+        },
+        GuidedStep {
+            id: "pen_tilt".into(),
+            instruction: "Tilt the pen at a steep angle while touching the surface. Press Continue when done.".into(),
+            category: StepCategory::Custom("tilt".into()),
+            capture_duration_ms: 3000,
+            capture_during_action: true,
+        },
+        GuidedStep {
+            id: "pen_button".into(),
+            instruction: "Press any button on the pen (barrel button). Press Continue when done.".into(),
+            category: StepCategory::Custom("pen_button".into()),
+            capture_duration_ms: 3000,
+            capture_during_action: true,
         },
     ]
 }

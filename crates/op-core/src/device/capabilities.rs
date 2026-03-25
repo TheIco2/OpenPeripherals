@@ -51,6 +51,17 @@ pub enum Capability {
         max: u32,
     },
 
+    /// Firmware update support.
+    FirmwareUpdate,
+
+    /// Tablet pressure sensitivity levels.
+    PressureSensitivity {
+        levels: u32,
+    },
+
+    /// Tablet active area configuration.
+    ActiveArea,
+
     /// Custom capability defined by an addon.
     Custom {
         name: String,
@@ -117,4 +128,24 @@ pub enum DeviceSetting {
         name: String,
         value: serde_json::Value,
     },
+}
+
+/// Infer capabilities from detected signal patterns.
+pub fn capabilities_from_patterns(patterns: &[crate::signal::SignalPattern]) -> Vec<Capability> {
+    let mut caps = Vec::new();
+    for p in patterns {
+        match p.name.as_str() {
+            "set_rgb" => caps.push(Capability::Rgb { zone_count: 1 }),
+            "set_dpi" => caps.push(Capability::Dpi {
+                min: 100,
+                max: 30000,
+                step: 50,
+            }),
+            "set_polling_rate" => caps.push(Capability::PollingRate {
+                rates: vec![125, 500, 1000],
+            }),
+            _ => {}
+        }
+    }
+    caps
 }

@@ -1,0 +1,48 @@
+[package]
+name = "op-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OpenPeripheral backend server — addon registry, firmware updates, and distribution"
+
+[[bin]]
+name = "op-server"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+actix-web = "4"
+actix-multipart = "0.7"
+actix-files = "0.6"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+# Logging
+log = { workspace = true }
+env_logger = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# IDs / hashing
+uuid = { workspace = true }
+sha2 = "0.10"
+hex = "0.4"
+
+# DB (lightweight file-based)
+rusqlite = { version = "0.35", features = ["bundled"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Paths
+dirs = { workspace = true }
+
+# Async stream utilities
+futures-util = { workspace = true }

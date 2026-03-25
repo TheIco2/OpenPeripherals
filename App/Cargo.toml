@@ -13,10 +13,14 @@ path = "src/main.rs"
 op-core = { workspace = true }
 op-addon = { workspace = true }
 op-ai = { workspace = true }
-canvasx_runtime = { path = "../../Sentinel/sentinel-backend/CanvasX" }
+canvasx-runtime = { path = "../../Sentinel/sentinel-backend/CanvasX" }
 tokio = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
+dirs = { workspace = true }
+winit = { version = "0.30.13", features = ["rwh_06"] }
+pollster = "0.4.0"
+wgpu = "28.0.0"

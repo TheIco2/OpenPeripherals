@@ -1,0 +1,388 @@
+mod pages;
+
+use std::sync::Arc;
+use std::time::Instant;
+
+use anyhow::Result;
+
+use canvasx_runtime::gpu::context::GpuContext;
+use canvasx_runtime::gpu::renderer::Renderer;
+use canvasx_runtime::scene::app_host::{AppEvent, AppHost, PageSource, Route};
+use canvasx_runtime::scene::input_handler::{
+    KeyCode, Modifiers, MouseButton as CxMouseButton, RawInputEvent,
+};
+use op_addon::AddonRegistry;
+use op_core::device::DeviceRegistry;
+use op_core::profile::ProfileStore;
+
+use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalSize;
+use winit::event::WindowEvent;
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::window::{Window, WindowAttributes, WindowId};
+
+/// Build the AppHost with all pages and launch the CanvasX renderer.
+pub fn launch(
+    _device_registry: Arc<DeviceRegistry>,
+    _profile_store: ProfileStore,
+    _addon_registry: AddonRegistry,
+) -> Result<()> {
+    let host = build_app_host();
+
+    let event_loop = EventLoop::new().expect("Failed to create event loop");
+    let mut app = OpenPeripheralApp::new(host);
+
+    if let Err(e) = event_loop.run_app(&mut app) {
+        log::error!("Event loop error: {e}");
+    }
+
+    Ok(())
+}
+
+fn build_app_host() -> AppHost {
+    let mut host = AppHost::new("OpenPeripheral");
+    host.sidebar_width = 0.0; // Sidebar is part of the page HTML
+
+    host.add_route(Route {
+        id: "devices".into(),
+        label: "Devices".into(),
+        icon: None,
+        source: PageSource::HtmlFile(pages::devices_page()),
+        separator: false,
+    });
+
+    host.add_route(Route {
+        id: "addons".into(),
+        label: "Addons".into(),
+        icon: None,
+        source: PageSource::HtmlFile(pages::addons_page()),
+        separator: false,
+    });
+
+    host.add_route(Route {
+        id: "ai_learning".into(),
+        label: "AI Learning".into(),
+        icon: None,
+        source: PageSource::HtmlFile(pages::ai_learning_page()),
+        separator: false,
+    });
+
+    host.add_route(Route {
+        id: "profiles".into(),
+        label: "Profiles".into(),
+        icon: None,
+        source: PageSource::HtmlFile(pages::profiles_page()),
+        separator: false,
+    });
+
+    host.add_route(Route {
+        id: "settings".into(),
+        label: "Settings".into(),
+        icon: None,
+        source: PageSource::HtmlFile(pages::settings_page()),
+        separator: false,
+    });
+
+    host.navigate_to("devices");
+    host
+}
+
+// ---------------------------------------------------------------------------
+// Application state (mirrors CanvasX's own main.rs pattern)
+// ---------------------------------------------------------------------------
+
+struct OpenPeripheralApp {
+    host: AppHost,
+    window: Option<Arc<Window>>,
+    gpu_ctx: Option<GpuContext>,
+    renderer: Option<Renderer>,
+    last_frame: Instant,
+    frame_count: u64,
+    fps_timer: Instant,
+    current_modifiers: winit::keyboard::ModifiersState,
+}
+
+impl OpenPeripheralApp {
+    fn new(host: AppHost) -> Self {
+        Self {
+            host,
+            window: None,
+            gpu_ctx: None,
+            renderer: None,
+            last_frame: Instant::now(),
+            frame_count: 0,
+            fps_timer: Instant::now(),
+            current_modifiers: winit::keyboard::ModifiersState::empty(),
+        }
+    }
+
+    fn dispatch_input(&mut self, raw: RawInputEvent) {
+        self.host.handle_input(raw);
+    }
+
+    fn render_frame(&mut self) {
+        let now = Instant::now();
+        let dt = now.duration_since(self.last_frame).as_secs_f32();
+        self.last_frame = now;
+
+        // FPS counter (every 128 frames).
+        self.frame_count += 1;
+        if self.frame_count & 0x7F == 0 {
+            let elapsed = self.fps_timer.elapsed().as_secs_f64();
+            if elapsed >= 2.0 {
+                let fps = self.frame_count as f64 / elapsed;
+                log::debug!("FPS: {fps:.1}");
+                self.frame_count = 0;
+                self.fps_timer = Instant::now();
+            }
+        }
+
+        let (ctx, renderer) = match (self.gpu_ctx.as_ref(), self.renderer.as_mut()) {
+            (Some(c), Some(r)) => (c, r),
+            _ => return,
+        };
+
+        let scale = self
+            .window
+            .as_ref()
+            .map(|w| w.scale_factor() as f32)
+            .unwrap_or(1.0);
+
+        let (vw, vh) = (ctx.size.0 as f32 / scale, ctx.size.1 as f32 / scale);
+
+        // Tick the AppHost — this drives layout → animate → paint on the active page.
+        let events = self.host.tick(vw, vh, dt, &mut renderer.font_system);
+
+        for event in events {
+            match event {
+                AppEvent::NavigateTo(page_id) => {
+                    log::info!("Navigating to: {page_id}");
+                    self.host.navigate_to(&page_id);
+                }
+                AppEvent::OpenExternal(url) => {
+                    log::info!("Open external: {url}");
+                    #[cfg(target_os = "windows")]
+                    {
+                        let _ =
+                            std::process::Command::new("cmd").args(["/C", "start", &url]).spawn();
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Get the active scene's cached render data.
+        let Some(scene) = self.host.active_scene() else {
+            return;
+        };
+
+        let instances = scene.cached_instances.as_slice();
+        let clear_color = scene.document.background;
+        let text_areas = scene.text_areas();
+
+        // Render.
+        renderer.begin_frame(ctx, dt, scale);
+        match renderer.render(ctx, instances, text_areas, clear_color) {
+            Ok(()) => {}
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                if let Some(ref mut gpu) = self.gpu_ctx {
+                    let (w, h) = gpu.size;
+                    gpu.resize(w, h);
+                }
+            }
+            Err(wgpu::SurfaceError::OutOfMemory) => {
+                log::error!("GPU out of memory — exiting");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                log::warn!("Surface error: {e:?}");
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// winit ApplicationHandler
+// ---------------------------------------------------------------------------
+
+impl ApplicationHandler for OpenPeripheralApp {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+
+        log::info!("Initialising OpenPeripheral window...");
+
+        let attrs = WindowAttributes::default()
+            .with_title("OpenPeripheral")
+            .with_inner_size(PhysicalSize::new(1280u32, 800u32));
+
+        let window = match event_loop.create_window(attrs) {
+            Ok(w) => Arc::new(w),
+            Err(e) => {
+                log::error!("Failed to create window: {e}");
+                event_loop.exit();
+                return;
+            }
+        };
+
+        let gpu_ctx = match pollster::block_on(GpuContext::new(window.clone())) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                log::error!("GPU init failed: {e}");
+                event_loop.exit();
+                return;
+            }
+        };
+
+        let renderer = match Renderer::new(&gpu_ctx) {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("Renderer init failed: {e}");
+                event_loop.exit();
+                return;
+            }
+        };
+
+        self.window = Some(window.clone());
+        self.gpu_ctx = Some(gpu_ctx);
+        self.renderer = Some(renderer);
+        self.last_frame = Instant::now();
+        self.fps_timer = Instant::now();
+
+        window.request_redraw();
+        event_loop.set_control_flow(ControlFlow::Poll);
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::CloseRequested => {
+                log::info!("Close requested — shutting down.");
+                event_loop.exit();
+            }
+
+            WindowEvent::Resized(new_size) => {
+                if let Some(ref mut ctx) = self.gpu_ctx {
+                    ctx.resize(new_size.width, new_size.height);
+                    if let Some(scene) = self.host.active_scene_mut() {
+                        scene.invalidate_layout();
+                    }
+                }
+            }
+
+            WindowEvent::RedrawRequested => {
+                self.render_frame();
+                if let Some(ref w) = self.window {
+                    w.request_redraw();
+                }
+            }
+
+            WindowEvent::CursorMoved { position, .. } => {
+                self.dispatch_input(RawInputEvent::MouseMove {
+                    x: position.x as f32,
+                    y: position.y as f32,
+                });
+            }
+
+            WindowEvent::MouseInput { state, button, .. } => {
+                let btn = match button {
+                    winit::event::MouseButton::Left => CxMouseButton::Left,
+                    winit::event::MouseButton::Right => CxMouseButton::Right,
+                    winit::event::MouseButton::Middle => CxMouseButton::Middle,
+                    _ => return,
+                };
+                // AppHost doesn't expose mouse_pos directly, use (0,0) as placeholder.
+                // The InputHandler inside AppHost tracks position from MouseMove events.
+                let raw = match state {
+                    winit::event::ElementState::Pressed => {
+                        RawInputEvent::MouseDown { x: 0.0, y: 0.0, button: btn }
+                    }
+                    winit::event::ElementState::Released => {
+                        RawInputEvent::MouseUp { x: 0.0, y: 0.0, button: btn }
+                    }
+                };
+                self.dispatch_input(raw);
+            }
+
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (dx, dy) = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => (x * 40.0, y * 40.0),
+                    winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                        (pos.x as f32, pos.y as f32)
+                    }
+                };
+                self.dispatch_input(RawInputEvent::MouseWheel {
+                    x: 0.0,
+                    y: 0.0,
+                    delta_x: dx,
+                    delta_y: dy,
+                });
+            }
+
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == winit::event::ElementState::Pressed {
+                    let mods = Modifiers {
+                        ctrl: self.current_modifiers.control_key(),
+                        shift: self.current_modifiers.shift_key(),
+                        alt: self.current_modifiers.alt_key(),
+                    };
+                    let key = winit_key_to_cx(&event.logical_key);
+                    self.dispatch_input(RawInputEvent::KeyDown {
+                        key,
+                        modifiers: mods,
+                    });
+
+                    if let Some(text) = &event.text {
+                        let s = text.to_string();
+                        if !s.is_empty() && !mods.ctrl && !mods.alt {
+                            let ch = s.chars().next().unwrap_or('\0');
+                            if !ch.is_control() {
+                                self.dispatch_input(RawInputEvent::TextInput { text: s });
+                            }
+                        }
+                    }
+                }
+            }
+
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.current_modifiers = modifiers.state();
+            }
+
+            _ => {}
+        }
+    }
+}
+
+fn winit_key_to_cx(key: &winit::keyboard::Key) -> KeyCode {
+    use winit::keyboard::{Key as WKey, NamedKey};
+    match key {
+        WKey::Named(NamedKey::Enter) => KeyCode::Enter,
+        WKey::Named(NamedKey::Tab) => KeyCode::Tab,
+        WKey::Named(NamedKey::Escape) => KeyCode::Escape,
+        WKey::Named(NamedKey::Backspace) => KeyCode::Backspace,
+        WKey::Named(NamedKey::Delete) => KeyCode::Delete,
+        WKey::Named(NamedKey::ArrowLeft) => KeyCode::Left,
+        WKey::Named(NamedKey::ArrowRight) => KeyCode::Right,
+        WKey::Named(NamedKey::ArrowUp) => KeyCode::Up,
+        WKey::Named(NamedKey::ArrowDown) => KeyCode::Down,
+        WKey::Named(NamedKey::Home) => KeyCode::Home,
+        WKey::Named(NamedKey::End) => KeyCode::End,
+        WKey::Named(NamedKey::PageUp) => KeyCode::PageUp,
+        WKey::Named(NamedKey::PageDown) => KeyCode::PageDown,
+        WKey::Named(NamedKey::Space) => KeyCode::Space,
+        WKey::Character(c) => match c.as_str() {
+            "a" | "A" => KeyCode::A,
+            "c" | "C" => KeyCode::C,
+            "v" | "V" => KeyCode::V,
+            "x" | "X" => KeyCode::X,
+            "z" | "Z" => KeyCode::Z,
+            _ => KeyCode::Other(c.chars().next().unwrap_or('\0') as u32),
+        },
+        _ => KeyCode::Other(0),
+    }
+}
