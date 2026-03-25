@@ -1,0 +1,45 @@
+<!-- OpenPeripheral — Sidebar Component
+     Included via <include src="components/sidebar.html" /> -->
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-brand">
+      <div class="brand-logo">OP</div>
+      <span class="brand-text">OpenPeripheral</span>
+    </div>
+    <div class="collapse-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-sidebar">‹</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-item" id="nav-devices" data-navigate="devices">
+      <div class="nav-icon">D</div>
+      <span class="nav-text">Devices</span>
+    </div>
+    <div class="nav-item" id="nav-addons" data-navigate="addons">
+      <div class="nav-icon">A</div>
+      <span class="nav-text">Addons</span>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-item" id="nav-ai_learning" data-navigate="ai_learning">
+      <div class="nav-icon">AI</div>
+      <span class="nav-text">AI Learning</span>
+    </div>
+    <div class="nav-item" id="nav-profiles" data-navigate="profiles">
+      <div class="nav-icon">P</div>
+      <span class="nav-text">Profiles</span>
+    </div>
+  </div>
+
+  <div class="nav-spacer"></div>
+
+  <div class="sidebar-bottom">
+    <div class="bottom-buttons">
+      <div class="bottom-btn" id="nav-settings" data-navigate="settings"><span>S</span></div>
+      <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-theme"><span>T</span></div>
+      <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="notifications"><span>N</span></div>
+    </div>
+    <div class="clock-container">
+      <span class="clock-time" id="clock">00:00:00</span>
+    </div>
+  </div>
+</div>

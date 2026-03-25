@@ -1,108 +1,43 @@
 <div class="app-layout">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-brand">
-        <div class="brand-logo">OP</div>
-        <span class="brand-text">OpenPeripheral</span>
-      </div>
-      <div class="collapse-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-sidebar">‹</div>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-item active" data-navigate="devices">
-        <div class="nav-icon">D</div>
-        <span class="nav-text">Devices</span>
-      </div>
-      <div class="nav-item" data-navigate="addons">
-        <div class="nav-icon">A</div>
-        <span class="nav-text">Addons</span>
-      </div>
-      <div class="nav-item" data-navigate="ai_learning">
-        <div class="nav-icon">AI</div>
-        <span class="nav-text">AI Learning</span>
-      </div>
-      <div class="nav-item" data-navigate="profiles">
-        <div class="nav-icon">P</div>
-        <span class="nav-text">Profiles</span>
-      </div>
-    </div>
-
-    <div class="nav-spacer"></div>
-
-    <div class="sidebar-bottom">
-      <div class="bottom-buttons">
-        <div class="bottom-btn" data-navigate="settings"><span>S</span></div>
-        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-theme"><span>T</span></div>
-        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="notifications"><span>N</span></div>
-      </div>
-      <div class="clock-container">
-        <span class="clock-time" id="clock">00:00:00</span>
-      </div>
-    </div>
-  </div>
+  <include src="components/sidebar.html" />
 
   <div class="page-content">
     <div class="page">
-      <h1>Connected Devices</h1>
-      <p class="subtitle">Peripherals detected on your system</p>
+      <div class="page-header">
+        <span class="page-header-label">Dashboard</span>
+        <div class="page-header-row">
+          <h1>Connected Devices</h1>
+          <div class="actions-bar">
+            <button class="btn-secondary">Scan</button>
+          </div>
+        </div>
+        <p class="subtitle">Peripherals detected on your system</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-value" id="device-count">0</span>
+          <span class="stat-label">Devices</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="addon-count">0</span>
+          <span class="stat-label">Addons</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="profile-count">0</span>
+          <span class="stat-label">Profiles</span>
+        </div>
+      </div>
 
       <div class="device-list" id="device-list">
         <div class="empty-state">
-          <p>No devices detected.</p>
-          <p class="hint">Install an addon for your brand, or use AI Learning to add support for a new device.</p>
+          <div class="empty-state-icon">D</div>
+          <p>No devices detected</p>
+          <p class="hint">Connect a peripheral, or install an addon to add device support. You can also use AI Learning to reverse-engineer a new device.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-.device-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.device-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: #18181b;
-  border: 1px solid #27272a;
-  border-radius: 10px;
-}
-
-.device-icon {
-  width: 48px;
-  height: 48px;
-  background: #27272a;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.device-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.device-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fafafa;
-}
-
-.device-brand {
-  font-size: 12px;
-  color: #71717a;
-}
-
-.device-type {
-  font-size: 11px;
-  color: #6366f1;
-  font-weight: 500;
-}
-</style>
+<script src="script.js"></script>

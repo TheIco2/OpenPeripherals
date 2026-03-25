@@ -1,102 +1,44 @@
 <div class="app-layout">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-brand">
-        <div class="brand-logo">OP</div>
-        <span class="brand-text">OpenPeripheral</span>
-      </div>
-      <div class="collapse-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-sidebar">‹</div>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-item" data-navigate="devices">
-        <div class="nav-icon">D</div>
-        <span class="nav-text">Devices</span>
-      </div>
-      <div class="nav-item active" data-navigate="addons">
-        <div class="nav-icon">A</div>
-        <span class="nav-text">Addons</span>
-      </div>
-      <div class="nav-item" data-navigate="ai_learning">
-        <div class="nav-icon">AI</div>
-        <span class="nav-text">AI Learning</span>
-      </div>
-      <div class="nav-item" data-navigate="profiles">
-        <div class="nav-icon">P</div>
-        <span class="nav-text">Profiles</span>
-      </div>
-    </div>
-
-    <div class="nav-spacer"></div>
-
-    <div class="sidebar-bottom">
-      <div class="bottom-buttons">
-        <div class="bottom-btn" data-navigate="settings"><span>S</span></div>
-        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="toggle-theme"><span>T</span></div>
-        <div class="bottom-btn" data-action="ipc" data-ns="ui" data-cmd="notifications"><span>N</span></div>
-      </div>
-      <div class="clock-container">
-        <span class="clock-time" id="clock">00:00:00</span>
-      </div>
-    </div>
-  </div>
+  <include src="components/sidebar.html" />
 
   <div class="page-content">
     <div class="page">
-      <h1>Addons</h1>
-      <p class="subtitle">Manage brand and device addons</p>
-
-      <div class="actions-bar">
-        <button class="btn-primary">Install Addon</button>
-        <button class="btn-secondary">Open Addons Folder</button>
+      <div class="page-header">
+        <span class="page-header-label">Extensions</span>
+        <div class="page-header-row">
+          <h1>Addons</h1>
+          <div class="actions-bar">
+            <button class="btn-primary">Install Addon</button>
+            <button class="btn-secondary">Open Folder</button>
+          </div>
+        </div>
+        <p class="subtitle">Brand and device addons extend OpenPeripheral with new hardware support</p>
       </div>
 
-      <div class="addon-list" id="addon-list">
-        <div class="empty-state">
-          <p>No addons installed.</p>
-          <p class="hint">Download addons for your peripherals or create your own with the OpenPeripheral SDK.</p>
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Installed</h2>
+          <span class="tag tag-muted">0 addons</span>
+        </div>
+
+        <div class="addon-list" id="addon-list">
+          <div class="empty-state">
+            <div class="empty-state-icon">A</div>
+            <p>No addons installed</p>
+            <p class="hint">Download addons for your peripherals from the community, or create your own with the OpenPeripheral SDK.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-highlight">
+        <h2>Create Your Own</h2>
+        <p class="subtitle">Use the OpenPeripheral SDK to build addons that add support for any USB peripheral. Addons can define device protocols, custom UI, lighting effects, and macro engines.</p>
+        <div class="actions-bar">
+          <button class="btn-secondary">View SDK Docs</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-.addon-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.addon-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  background: #18181b;
-  border: 1px solid #27272a;
-  border-radius: 10px;
-}
-
-.addon-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.addon-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fafafa;
-}
-
-.addon-version {
-  font-size: 12px;
-  color: #71717a;
-}
-
-.addon-devices {
-  font-size: 11px;
-  color: #6366f1;
-}
-</style>
+<script src="script.js"></script>

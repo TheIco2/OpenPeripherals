@@ -12,5 +12,6 @@ serde_yaml = { workspace = true }
 hidapi = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
+chrono = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }

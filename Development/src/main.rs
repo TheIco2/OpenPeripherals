@@ -70,7 +70,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    op_core::logging::init("Dev", cfg!(debug_assertions));
 
     let cli = Cli::parse();
 

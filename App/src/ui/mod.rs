@@ -11,6 +11,7 @@ use canvasx_runtime::scene::app_host::{AppEvent, AppHost, PageSource, Route};
 use canvasx_runtime::scene::input_handler::{
     KeyCode, Modifiers, MouseButton as CxMouseButton, RawInputEvent,
 };
+use canvasx_runtime::capabilities::{CapabilitySet, NetworkAccess, TrayAccess};
 use op_addon::AddonRegistry;
 use op_core::device::DeviceRegistry;
 use op_core::profile::ProfileStore;
@@ -42,6 +43,12 @@ pub fn launch(
 fn build_app_host() -> AppHost {
     let mut host = AppHost::new("OpenPeripheral");
     host.sidebar_width = 0.0; // Sidebar is part of the page HTML
+
+    host.set_capabilities(
+        CapabilitySet::new()
+            .declare(TrayAccess)
+            .declare(NetworkAccess),
+    );
 
     host.add_route(Route {
         id: "devices".into(),
@@ -117,7 +124,17 @@ impl OpenPeripheralApp {
     }
 
     fn dispatch_input(&mut self, raw: RawInputEvent) {
-        self.host.handle_input(raw);
+        let (vw, vh) = self.viewport_size();
+        self.host.handle_input(raw, vw, vh);
+    }
+
+    fn viewport_size(&self) -> (f32, f32) {
+        let ctx = match self.gpu_ctx.as_ref() {
+            Some(c) => c,
+            None => return (1280.0, 800.0),
+        };
+        let scale = self.window.as_ref().map(|w| w.scale_factor() as f32).unwrap_or(1.0);
+        (ctx.size.0 as f32 / scale, ctx.size.1 as f32 / scale)
     }
 
     fn render_frame(&mut self) {
@@ -148,7 +165,8 @@ impl OpenPeripheralApp {
             .map(|w| w.scale_factor() as f32)
             .unwrap_or(1.0);
 
-        let (vw, vh) = (ctx.size.0 as f32 / scale, ctx.size.1 as f32 / scale);
+        let vw = ctx.size.0 as f32 / scale;
+        let vh = ctx.size.1 as f32 / scale;
 
         // Tick the AppHost — this drives layout → animate → paint on the active page.
         let events = self.host.tick(vw, vh, dt, &mut renderer.font_system);
@@ -156,8 +174,12 @@ impl OpenPeripheralApp {
         for event in events {
             match event {
                 AppEvent::NavigateTo(page_id) => {
-                    log::info!("Navigating to: {page_id}");
-                    self.host.navigate_to(&page_id);
+                    log::info!("Navigated to: {page_id}");
+                    // Navigation already handled internally by AppHost.
+                    // Re-init JS runtime for the new page.
+                    let w = ctx.size.0;
+                    let h = ctx.size.1;
+                    self.host.init_js_for_active_page(w, h);
                 }
                 AppEvent::OpenExternal(url) => {
                     log::info!("Open external: {url}");
@@ -167,22 +189,99 @@ impl OpenPeripheralApp {
                             std::process::Command::new("cmd").args(["/C", "start", &url]).spawn();
                     }
                 }
+                AppEvent::TrayToggleWindow => {
+                    if let Some(ref win) = self.window {
+                        if win.is_visible().unwrap_or(true) {
+                            win.set_visible(false);
+                        } else {
+                            win.set_visible(true);
+                            win.focus_window();
+                        }
+                    }
+                }
+                AppEvent::TrayAction(action) => {
+                    log::info!("Tray action: {action}");
+                }
                 _ => {}
             }
         }
 
-        // Get the active scene's cached render data.
-        let Some(scene) = self.host.active_scene() else {
-            return;
+        // Upload dirty canvas textures.
+        let dirty = self.host.dirty_canvases();
+        for (canvas_id, _node, width, height, rgba) in dirty {
+            let slot = self.host.canvas_slot(canvas_id);
+            renderer.upload_canvas_texture(&ctx.device, &ctx.queue, slot, width, height, &rgba);
+        }
+        self.host.commit_canvas_uploads();
+
+        // Get combined scene + DevTools instances.
+        let (instances, clear_color) = self.host.combined_instances(vw, vh);
+
+        // Prepare scene text areas.
+        let text_areas = if let Some(scene) = self.host.active_scene() {
+            scene.text_areas()
+        } else {
+            Vec::new()
         };
 
-        let instances = scene.cached_instances.as_slice();
-        let clear_color = scene.document.background;
-        let text_areas = scene.text_areas();
+        // Prepare DevTools text entries.
+        let devtools_entries = self.host.devtools_text_entries(vw, vh);
+        let mut devtools_buffers: Vec<glyphon::Buffer> = Vec::new();
+        for entry in &devtools_entries {
+            let font_size = entry.font_size;
+            let line_height = font_size * 1.3;
+            let metrics = glyphon::Metrics::new(font_size, line_height);
+            let mut buffer = glyphon::Buffer::new(&mut renderer.font_system, metrics);
+            let weight = if entry.bold {
+                glyphon::Weight(700)
+            } else {
+                glyphon::Weight(400)
+            };
+            let attrs = glyphon::Attrs::new()
+                .family(glyphon::Family::SansSerif)
+                .weight(weight);
+            buffer.set_size(&mut renderer.font_system, Some(entry.width), None);
+            buffer.set_text(
+                &mut renderer.font_system,
+                &entry.text,
+                &attrs,
+                glyphon::Shaping::Advanced,
+                None,
+            );
+            buffer.shape_until_scroll(&mut renderer.font_system, false);
+            devtools_buffers.push(buffer);
+        }
+        let mut devtools_text_areas: Vec<glyphon::TextArea<'_>> = Vec::new();
+        for (i, entry) in devtools_entries.iter().enumerate() {
+            if let Some(buf) = devtools_buffers.get(i) {
+                let c = entry.color;
+                devtools_text_areas.push(glyphon::TextArea {
+                    buffer: buf,
+                    left: entry.x,
+                    top: entry.y,
+                    scale: 1.0,
+                    bounds: glyphon::TextBounds {
+                        left: entry.x as i32,
+                        top: entry.y as i32,
+                        right: (entry.x + entry.width) as i32,
+                        bottom: (entry.y + entry.font_size * 2.0) as i32,
+                    },
+                    default_color: glyphon::Color::rgba(
+                        (c.r * 255.0) as u8,
+                        (c.g * 255.0) as u8,
+                        (c.b * 255.0) as u8,
+                        (c.a * 255.0) as u8,
+                    ),
+                    custom_glyphs: &[],
+                });
+            }
+        }
+        let mut all_text_areas = text_areas;
+        all_text_areas.extend(devtools_text_areas);
 
         // Render.
         renderer.begin_frame(ctx, dt, scale);
-        match renderer.render(ctx, instances, text_areas, clear_color) {
+        match renderer.render(ctx, &instances, all_text_areas, clear_color) {
             Ok(()) => {}
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                 if let Some(ref mut gpu) = self.gpu_ctx {
@@ -250,6 +349,23 @@ impl ApplicationHandler for OpenPeripheralApp {
         self.last_frame = Instant::now();
         self.fps_timer = Instant::now();
 
+        // Initialize system tray (if TrayAccess capability declared).
+        self.host.init_tray("OpenPeripheral");
+
+        // Initialize JS runtime for the active page.
+        let (w, h) = self.gpu_ctx.as_ref().map(|c| c.size).unwrap_or((1280, 800));
+        self.host.init_js_for_active_page(w, h);
+
+        // Populate DevTools GPU info.
+        if let Some(ref ctx) = self.gpu_ctx {
+            let info = ctx.adapter.get_info();
+            self.host.set_gpu_info(format!(
+                "{} ({:?})",
+                info.name,
+                info.backend,
+            ));
+        }
+
         window.request_redraw();
         event_loop.set_control_flow(ControlFlow::Poll);
     }
@@ -262,8 +378,15 @@ impl ApplicationHandler for OpenPeripheralApp {
     ) {
         match event {
             WindowEvent::CloseRequested => {
-                log::info!("Close requested — shutting down.");
-                event_loop.exit();
+                if self.host.has_active_tray() {
+                    log::info!("Minimizing to system tray.");
+                    if let Some(ref win) = self.window {
+                        win.set_visible(false);
+                    }
+                } else {
+                    log::info!("Close requested — shutting down.");
+                    event_loop.exit();
+                }
             }
 
             WindowEvent::Resized(new_size) => {

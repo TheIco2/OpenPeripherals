@@ -19,7 +19,7 @@ fn data_dir() -> PathBuf {
 }
 
 fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    op_core::logging::init("App", cfg!(debug_assertions));
 
     info!("OpenPeripheral starting...");
 

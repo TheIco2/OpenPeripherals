@@ -10,6 +10,9 @@ name = "op-server"
 path = "src/main.rs"
 
 [dependencies]
+# Core (logging)
+op-core = { workspace = true }
+
 # Web framework
 actix-web = "4"
 actix-multipart = "0.7"
@@ -24,7 +27,6 @@ tokio = { workspace = true }
 
 # Logging
 log = { workspace = true }
-env_logger = { workspace = true }
 
 # Error handling
 thiserror = { workspace = true }

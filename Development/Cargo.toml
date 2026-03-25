@@ -31,7 +31,6 @@ clap = { version = "4", features = ["derive", "env"] }
 
 # Logging
 log = { workspace = true }
-env_logger = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
