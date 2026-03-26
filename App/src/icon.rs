@@ -101,7 +101,7 @@ fn draw_op_letters(x: f32, y: f32, size: f32) -> (f32, f32, f32) {
     let ny = y / size;
     let stroke = 0.08; // stroke width as fraction of size
 
-    let mut intensity = 0.0;
+    let mut intensity: f32 = 0.0;
 
     // "O" — centered ring in left half.
     let o_cx = 0.32;

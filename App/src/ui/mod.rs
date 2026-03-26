@@ -11,7 +11,8 @@ use canvasx_runtime::scene::app_host::{AppEvent, AppHost, PageSource, Route};
 use canvasx_runtime::scene::input_handler::{
     KeyCode, Modifiers, MouseButton as CxMouseButton, RawInputEvent,
 };
-use canvasx_runtime::capabilities::{CapabilitySet, NetworkAccess, TrayAccess};
+use canvasx_runtime::capabilities::{CapabilitySet, NetworkAccess, TrayAccess, SingleInstance};
+use canvasx_runtime::instance::{self, InstanceLockResult};
 use canvasx_runtime::tray::TrayConfig;
 use op_addon::AddonRegistry;
 use op_core::device::DeviceRegistry;
@@ -29,7 +30,23 @@ pub fn launch(
     _profile_store: ProfileStore,
     _addon_registry: AddonRegistry,
 ) -> Result<()> {
-    let host = build_app_host();
+    // Enforce single-instance: if OpenPeripheral is already running,
+    // signal the existing instance to come to foreground and exit.
+    let instance_guard = match instance::acquire_single_instance("OpenPeripheral") {
+        InstanceLockResult::Acquired(guard) => Some(guard),
+        InstanceLockResult::AlreadyRunning => {
+            log::info!("Another OpenPeripheral instance is already running — focusing it.");
+            return Ok(());
+        }
+    };
+
+    let mut host = build_app_host();
+
+    // Hand the single-instance guard to the host so it polls for focus
+    // requests from future launches.
+    if let Some(guard) = instance_guard {
+        host.set_instance_guard(guard);
+    }
 
     let event_loop = EventLoop::new().expect("Failed to create event loop");
     let mut app = OpenPeripheralApp::new(host);
@@ -41,6 +58,30 @@ pub fn launch(
     Ok(())
 }
 
+/// Load an icon declared via `<include type="icon">` from the compiled document.
+/// `target` should be "window", "system", or "" to match either.
+fn load_declared_icon(host: &AppHost, target: &str) -> Option<(Vec<u8>, u32, u32)> {
+    for decl in host.icon_declarations() {
+        // Match: empty target means both, or target matches exactly.
+        if decl.target.is_empty() || decl.target == target {
+            let path = std::path::Path::new(&decl.path);
+            if path.exists() {
+                if let Ok(img) = image::open(path) {
+                    let rgba = img.into_rgba8();
+                    let w = rgba.width();
+                    let h = rgba.height();
+                    return Some((rgba.into_raw(), w, h));
+                } else {
+                    log::warn!("Failed to load icon: {}", decl.path);
+                }
+            } else {
+                log::warn!("Icon file not found: {}", decl.path);
+            }
+        }
+    }
+    None
+}
+
 fn build_app_host() -> AppHost {
     let mut host = AppHost::new("OpenPeripheral");
     host.sidebar_width = 0.0; // Sidebar is part of the page HTML
@@ -48,7 +89,8 @@ fn build_app_host() -> AppHost {
     host.set_capabilities(
         CapabilitySet::new()
             .declare(TrayAccess)
-            .declare(NetworkAccess),
+            .declare(NetworkAccess)
+            .declare(SingleInstance),
     );
 
     // Single route: base.html is the template with sidebar + page-content.
@@ -84,6 +126,8 @@ struct OpenPeripheralApp {
     current_modifiers: winit::keyboard::ModifiersState,
     /// Set to `true` when the app should exit at the next event-loop iteration.
     exit_requested: bool,
+    /// Last known cursor position in logical pixels.
+    cursor_pos: (f32, f32),
 }
 
 impl OpenPeripheralApp {
@@ -98,6 +142,7 @@ impl OpenPeripheralApp {
             fps_timer: Instant::now(),
             current_modifiers: winit::keyboard::ModifiersState::empty(),
             exit_requested: false,
+            cursor_pos: (0.0, 0.0),
         }
     }
 
@@ -211,6 +256,19 @@ impl OpenPeripheralApp {
                 AppEvent::WindowDragRequested => {
                     if let Some(ref win) = self.window {
                         let _ = win.drag_window();
+                    }
+                }
+                AppEvent::IpcCommand { ns, cmd, .. } => {
+                    match (ns.as_str(), cmd.as_str()) {
+                        ("devices", "scan") => {
+                            self.host.execute_js("if(typeof showToast==='function')showToast('Scanning for devices...','info');");
+                        }
+                        ("app", "exit") => {
+                            self.exit_requested = true;
+                        }
+                        _ => {
+                            log::debug!("Unhandled IPC: {ns}/{cmd}");
+                        }
                     }
                 }
                 _ => {}
@@ -328,8 +386,9 @@ impl ApplicationHandler for OpenPeripheralApp {
 
         log::info!("Initialising OpenPeripheral window...");
 
-        // Generate window icon.
-        let (icon_rgba, icon_w, icon_h) = crate::icon::generate_window_icon();
+        // Generate window icon — prefer declared icon from HTML, fall back to generated.
+        let (icon_rgba, icon_w, icon_h) = load_declared_icon(&self.host, "window")
+            .unwrap_or_else(|| crate::icon::generate_window_icon());
         let window_icon = winit::window::Icon::from_rgba(icon_rgba, icon_w, icon_h).ok();
 
         let attrs = WindowAttributes::default()
@@ -372,7 +431,8 @@ impl ApplicationHandler for OpenPeripheralApp {
         self.fps_timer = Instant::now();
 
         // Initialize system tray (if TrayAccess capability declared).
-        let (tray_rgba, tray_w, tray_h) = crate::icon::generate_tray_icon();
+        let (tray_rgba, tray_w, tray_h) = load_declared_icon(&self.host, "system")
+            .unwrap_or_else(|| crate::icon::generate_tray_icon());
         self.host.init_tray_with_config(TrayConfig {
             enabled: true,
             tooltip: "OpenPeripheral".to_string(),
@@ -438,9 +498,13 @@ impl ApplicationHandler for OpenPeripheralApp {
             }
 
             WindowEvent::CursorMoved { position, .. } => {
+                let scale = self.window.as_ref().map(|w| w.scale_factor() as f32).unwrap_or(1.0);
+                let lx = position.x as f32 / scale;
+                let ly = position.y as f32 / scale;
+                self.cursor_pos = (lx, ly);
                 self.dispatch_input(RawInputEvent::MouseMove {
-                    x: position.x as f32,
-                    y: position.y as f32,
+                    x: lx,
+                    y: ly,
                 });
             }
 
@@ -472,8 +536,8 @@ impl ApplicationHandler for OpenPeripheralApp {
                     }
                 };
                 self.dispatch_input(RawInputEvent::MouseWheel {
-                    x: 0.0,
-                    y: 0.0,
+                    x: self.cursor_pos.0,
+                    y: self.cursor_pos.1,
                     delta_x: dx,
                     delta_y: dy,
                 });

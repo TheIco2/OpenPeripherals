@@ -1,5 +1,5 @@
 // OpenPeripheral — Page Script
-// Clock, sidebar collapse, and theme toggle
+// Clock, toast notifications, and theme toggle
 
 // ── Live Clock ──
 var clockEl = document.getElementById('clock');
@@ -13,4 +13,20 @@ if (clockEl) {
   }
   updateClock();
   setInterval(updateClock, 1000);
+}
+
+// ── Toast Notifications ──
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toast-container');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(function() {
+    if (toast.parentNode) {
+      toast.parentNode.removeChild(toast);
+    }
+  }, 4000);
 }
