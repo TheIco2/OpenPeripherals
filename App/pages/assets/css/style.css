@@ -250,6 +250,11 @@
 
 /* ── Content Area ───────────────────────────────────────────────────── */
 
+page-content {
+  flex-grow: 1;
+  overflow: auto;
+}
+
 .page-content {
   flex-grow: 1;
   background: var(--bg-content);

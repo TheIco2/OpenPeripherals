@@ -12,6 +12,7 @@ use canvasx_runtime::scene::input_handler::{
     KeyCode, Modifiers, MouseButton as CxMouseButton, RawInputEvent,
 };
 use canvasx_runtime::capabilities::{CapabilitySet, NetworkAccess, TrayAccess};
+use canvasx_runtime::tray::TrayConfig;
 use op_addon::AddonRegistry;
 use op_core::device::DeviceRegistry;
 use op_core::profile::ProfileStore;
@@ -170,6 +171,12 @@ impl OpenPeripheralApp {
                             std::process::Command::new("cmd").args(["/C", "start", &url]).spawn();
                     }
                 }
+                AppEvent::TrayShowWindow => {
+                    if let Some(ref win) = self.window {
+                        win.set_visible(true);
+                        win.focus_window();
+                    }
+                }
                 AppEvent::TrayToggleWindow => {
                     if let Some(ref win) = self.window {
                         if win.is_visible().unwrap_or(true) {
@@ -321,10 +328,15 @@ impl ApplicationHandler for OpenPeripheralApp {
 
         log::info!("Initialising OpenPeripheral window...");
 
+        // Generate window icon.
+        let (icon_rgba, icon_w, icon_h) = crate::icon::generate_window_icon();
+        let window_icon = winit::window::Icon::from_rgba(icon_rgba, icon_w, icon_h).ok();
+
         let attrs = WindowAttributes::default()
             .with_title("OpenPeripheral")
             .with_inner_size(PhysicalSize::new(1280u32, 800u32))
-            .with_decorations(!self.host.has_custom_title_bar);
+            .with_decorations(!self.host.has_custom_title_bar)
+            .with_window_icon(window_icon);
 
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
@@ -360,7 +372,13 @@ impl ApplicationHandler for OpenPeripheralApp {
         self.fps_timer = Instant::now();
 
         // Initialize system tray (if TrayAccess capability declared).
-        self.host.init_tray("OpenPeripheral");
+        let (tray_rgba, tray_w, tray_h) = crate::icon::generate_tray_icon();
+        self.host.init_tray_with_config(TrayConfig {
+            enabled: true,
+            tooltip: "OpenPeripheral".to_string(),
+            icon_rgba: Some((tray_rgba, tray_w, tray_h)),
+            ..TrayConfig::default()
+        });
 
         // Initialize JS runtime for the active page.
         let (w, h) = self.gpu_ctx.as_ref().map(|c| c.size).unwrap_or((1280, 800));
@@ -495,6 +513,33 @@ impl ApplicationHandler for OpenPeripheralApp {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // Poll tray events directly — request_redraw() may not trigger
+        // RedrawRequested for hidden windows on Windows.
+        for event in self.host.poll_tray() {
+            match event {
+                AppEvent::TrayShowWindow => {
+                    if let Some(ref win) = self.window {
+                        win.set_visible(true);
+                        win.focus_window();
+                    }
+                }
+                AppEvent::TrayToggleWindow => {
+                    if let Some(ref win) = self.window {
+                        if win.is_visible().unwrap_or(true) {
+                            win.set_visible(false);
+                        } else {
+                            win.set_visible(true);
+                            win.focus_window();
+                        }
+                    }
+                }
+                AppEvent::CloseRequested => {
+                    self.exit_requested = true;
+                }
+                _ => {}
+            }
+        }
+
         // Ensure redraws continue even when window is hidden (for tray event polling).
         if let Some(ref w) = self.window {
             w.request_redraw();
