@@ -208,6 +208,12 @@ impl OpenPeripheralApp {
                         self.host.init_js_for_active_page(w, h);
                     }
                 }
+                AppEvent::PageReloaded(page_id) => {
+                    log::info!("Page reloaded: {page_id}");
+                    let w = ctx.size.0;
+                    let h = ctx.size.1;
+                    self.host.init_js_for_active_page(w, h);
+                }
                 AppEvent::OpenExternal(url) => {
                     log::info!("Open external: {url}");
                     #[cfg(target_os = "windows")]
@@ -261,7 +267,53 @@ impl OpenPeripheralApp {
                 AppEvent::IpcCommand { ns, cmd, .. } => {
                     match (ns.as_str(), cmd.as_str()) {
                         ("devices", "scan") => {
-                            self.host.execute_js("if(typeof showToast==='function')showToast('Scanning for devices...','info');");
+                            self.host.execute_js(concat!(
+                                "if(typeof showProgressToast==='function'){",
+                                  "var _tid=showProgressToast('Scanning for devices…','info');",
+                                  "if(_tid){updateProgress(_tid,30,'Enumerating USB devices…');",
+                                  "setTimeout(function(){updateProgress(_tid,70,'Identifying peripherals…')},800);",
+                                  "setTimeout(function(){completeProgress(_tid,'Scan complete','success')},1600);}",
+                                "}"
+                            ));
+                        }
+                        ("addons", "install") => {
+                            self.host.execute_js(concat!(
+                                "if(typeof showProgressToast==='function'){",
+                                  "var _tid=showProgressToast('Installing addon…','info');",
+                                  "if(_tid){updateProgress(_tid,20,'Downloading package…');",
+                                  "setTimeout(function(){updateProgress(_tid,50,'Extracting files…')},1000);",
+                                  "setTimeout(function(){updateProgress(_tid,80,'Registering drivers…')},2000);",
+                                  "setTimeout(function(){completeProgress(_tid,'Addon installed','success')},3000);}",
+                                "}"
+                            ));
+                        }
+                        ("addons", "open-folder") => {
+                            self.host.execute_js("if(typeof showToast==='function')showToast('Opening addons folder…','info');");
+                        }
+                        ("addons", "view-sdk-docs") => {
+                            self.host.execute_js("if(typeof showToast==='function')showToast('Opening SDK documentation…','info');");
+                        }
+                        ("ai", "start-session") => {
+                            self.host.execute_js(concat!(
+                                "if(typeof showProgressToast==='function'){",
+                                  "var _tid=showProgressToast('Starting AI learning session…','info');",
+                                  "if(_tid){updateProgress(_tid,40,'Initializing signal capture…');",
+                                  "setTimeout(function(){updateProgress(_tid,80,'Preparing guided steps…')},1200);",
+                                  "setTimeout(function(){completeProgress(_tid,'Session ready','success')},2000);}",
+                                "}"
+                            ));
+                        }
+                        ("profiles", "import") => {
+                            self.host.execute_js(concat!(
+                                "if(typeof showProgressToast==='function'){",
+                                  "var _tid=showProgressToast('Importing profile…','info');",
+                                  "if(_tid){updateProgress(_tid,50,'Reading profile data…');",
+                                  "setTimeout(function(){completeProgress(_tid,'Profile imported','success')},1200);}",
+                                "}"
+                            ));
+                        }
+                        ("profiles", "open-folder") => {
+                            self.host.execute_js("if(typeof showToast==='function')showToast('Opening profiles folder…','info');");
                         }
                         ("app", "exit") => {
                             self.exit_requested = true;
@@ -298,7 +350,7 @@ impl OpenPeripheralApp {
             text_areas.extend(tb_scene.text_areas());
         }
 
-        // Prepare DevTools text entries.
+        // Prepare DevTools text entries (excluding context menu — rendered as overlay).
         let devtools_entries = self.host.devtools_text_entries(vw, vh);
         let mut devtools_buffers: Vec<glyphon::Buffer> = Vec::new();
         for entry in &devtools_entries {
@@ -353,9 +405,66 @@ impl OpenPeripheralApp {
         let mut all_text_areas = text_areas;
         all_text_areas.extend(devtools_text_areas);
 
-        // Render.
+        // Build context menu overlay layer (instances + text) for z-correct rendering.
+        let ctx_menu_instances = self.host.context_menu_instances();
+        let ctx_menu_entries = self.host.context_menu_text_entries();
+        let mut ctx_menu_buffers: Vec<glyphon::Buffer> = Vec::new();
+        for entry in &ctx_menu_entries {
+            let font_size = entry.font_size;
+            let line_height = font_size * 1.3;
+            let metrics = glyphon::Metrics::new(font_size, line_height);
+            let mut buffer = glyphon::Buffer::new(&mut renderer.font_system, metrics);
+            let weight = if entry.bold { glyphon::Weight(700) } else { glyphon::Weight(400) };
+            let attrs = glyphon::Attrs::new()
+                .family(glyphon::Family::SansSerif)
+                .weight(weight);
+            buffer.set_size(&mut renderer.font_system, Some(entry.width), None);
+            buffer.set_text(
+                &mut renderer.font_system,
+                &entry.text,
+                &attrs,
+                glyphon::Shaping::Advanced,
+                None,
+            );
+            buffer.shape_until_scroll(&mut renderer.font_system, false);
+            ctx_menu_buffers.push(buffer);
+        }
+        let mut ctx_menu_text_areas: Vec<glyphon::TextArea<'_>> = Vec::new();
+        for (i, entry) in ctx_menu_entries.iter().enumerate() {
+            if let Some(buf) = ctx_menu_buffers.get(i) {
+                let c = entry.color;
+                ctx_menu_text_areas.push(glyphon::TextArea {
+                    buffer: buf,
+                    left: entry.x,
+                    top: entry.y,
+                    scale: 1.0,
+                    bounds: glyphon::TextBounds {
+                        left: entry.x as i32,
+                        top: entry.y as i32,
+                        right: (entry.x + entry.width) as i32,
+                        bottom: (entry.y + entry.font_size * 2.0) as i32,
+                    },
+                    default_color: glyphon::Color::rgba(
+                        (c.r * 255.0) as u8,
+                        (c.g * 255.0) as u8,
+                        (c.b * 255.0) as u8,
+                        (c.a * 255.0) as u8,
+                    ),
+                    custom_glyphs: &[],
+                });
+            }
+        }
+
+        // Render with layered pipeline: scene text → context menu boxes → context menu text.
         renderer.begin_frame(ctx, dt, scale);
-        match renderer.render(ctx, &instances, all_text_areas, clear_color) {
+        match renderer.render_layered(
+            ctx,
+            &instances,
+            all_text_areas,
+            &ctx_menu_instances,
+            ctx_menu_text_areas,
+            clear_color,
+        ) {
             Ok(()) => {}
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                 if let Some(ref mut gpu) = self.gpu_ctx {
