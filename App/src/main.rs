@@ -21,6 +21,24 @@ fn data_dir() -> PathBuf {
 fn main() -> Result<()> {
     op_core::logging::init("App", cfg!(debug_assertions));
 
+    // Install a panic hook that logs the crash before the process terminates.
+    // Without this, windows_subsystem = "windows" silently kills the process.
+    std::panic::set_hook(Box::new(|info| {
+        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic payload".to_string()
+        };
+        let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        log::error!("PANIC at {}: {}", location, payload);
+        // Also write to a crash file in case log isn't flushed.
+        let crash_path = data_dir().join("crash.log");
+        let _ = std::fs::write(&crash_path, format!("PANIC at {}: {}\n", location, payload));
+    }));
+
     info!("OpenPeripheral starting...");
 
     let base = data_dir();

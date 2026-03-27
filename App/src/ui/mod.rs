@@ -61,6 +61,9 @@ fn build_app_host() -> AppHost {
         separator: false,
     });
 
+    // Load custom title bar from pages/title-bar.html if it exists.
+    host.load_title_bar(&pages::base_page().parent().unwrap_or(std::path::Path::new(".")));
+
     host.navigate_to("home");
     host
 }
@@ -78,6 +81,8 @@ struct OpenPeripheralApp {
     frame_count: u64,
     fps_timer: Instant,
     current_modifiers: winit::keyboard::ModifiersState,
+    /// Set to `true` when the app should exit at the next event-loop iteration.
+    exit_requested: bool,
 }
 
 impl OpenPeripheralApp {
@@ -91,6 +96,7 @@ impl OpenPeripheralApp {
             frame_count: 0,
             fps_timer: Instant::now(),
             current_modifiers: winit::keyboard::ModifiersState::empty(),
+            exit_requested: false,
         }
     }
 
@@ -146,15 +152,15 @@ impl OpenPeripheralApp {
             match event {
                 AppEvent::NavigateTo(page_id) => {
                     log::info!("Navigated to: {page_id}");
-                    // If this page isn't active yet (UI-driven navigation),
-                    // perform the full navigation first.
+                    // Only re-init when navigating to a different page.
+                    // The initial NavigateTo from build_app_host is already
+                    // handled by resumed() calling init_js_for_active_page.
                     if self.host.active_page() != Some(&page_id) {
                         self.host.navigate_to(&page_id);
+                        let w = ctx.size.0;
+                        let h = ctx.size.1;
+                        self.host.init_js_for_active_page(w, h);
                     }
-                    // Re-init JS runtime for the new page.
-                    let w = ctx.size.0;
-                    let h = ctx.size.1;
-                    self.host.init_js_for_active_page(w, h);
                 }
                 AppEvent::OpenExternal(url) => {
                     log::info!("Open external: {url}");
@@ -177,6 +183,29 @@ impl OpenPeripheralApp {
                 AppEvent::TrayAction(action) => {
                     log::info!("Tray action: {action}");
                 }
+                AppEvent::CloseRequested => {
+                    self.exit_requested = true;
+                }
+                AppEvent::SetTitle(title) => {
+                    if let Some(ref win) = self.window {
+                        win.set_title(&title);
+                    }
+                }
+                AppEvent::MinimizeRequested => {
+                    if let Some(ref win) = self.window {
+                        win.set_minimized(true);
+                    }
+                }
+                AppEvent::MaximizeToggleRequested => {
+                    if let Some(ref win) = self.window {
+                        win.set_maximized(!win.is_maximized());
+                    }
+                }
+                AppEvent::WindowDragRequested => {
+                    if let Some(ref win) = self.window {
+                        let _ = win.drag_window();
+                    }
+                }
                 _ => {}
             }
         }
@@ -193,11 +222,16 @@ impl OpenPeripheralApp {
         let (instances, clear_color) = self.host.combined_instances(vw, vh);
 
         // Prepare scene text areas.
-        let text_areas = if let Some(scene) = self.host.active_scene() {
+        let mut text_areas = if let Some(scene) = self.host.active_scene() {
             scene.text_areas()
         } else {
             Vec::new()
         };
+
+        // Include title bar text areas if present.
+        if let Some(tb_scene) = self.host.title_bar_scene() {
+            text_areas.extend(tb_scene.text_areas());
+        }
 
         // Prepare DevTools text entries.
         let devtools_entries = self.host.devtools_text_entries(vw, vh);
@@ -289,7 +323,8 @@ impl ApplicationHandler for OpenPeripheralApp {
 
         let attrs = WindowAttributes::default()
             .with_title("OpenPeripheral")
-            .with_inner_size(PhysicalSize::new(1280u32, 800u32));
+            .with_inner_size(PhysicalSize::new(1280u32, 800u32))
+            .with_decorations(!self.host.has_custom_title_bar);
 
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
@@ -375,6 +410,10 @@ impl ApplicationHandler for OpenPeripheralApp {
 
             WindowEvent::RedrawRequested => {
                 self.render_frame();
+                if self.exit_requested {
+                    event_loop.exit();
+                    return;
+                }
                 if let Some(ref w) = self.window {
                     w.request_redraw();
                 }
@@ -452,6 +491,16 @@ impl ApplicationHandler for OpenPeripheralApp {
             }
 
             _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // Ensure redraws continue even when window is hidden (for tray event polling).
+        if let Some(ref w) = self.window {
+            w.request_redraw();
+        }
+        if self.exit_requested {
+            event_loop.exit();
         }
     }
 }

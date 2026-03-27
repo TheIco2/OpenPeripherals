@@ -107,6 +107,11 @@
   font-weight: 700;
 }
 
+.collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
 
 /* ── Navigation ─────────────────────────────────────────────────────── */
 
@@ -126,6 +131,11 @@
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
@@ -207,6 +217,11 @@
   color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 700;
+}
+
+.bottom-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .bottom-btn.active {
@@ -315,6 +330,10 @@ h3 {
   letter-spacing: -0.1px;
 }
 
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
 .btn-secondary {
   padding: 9px 18px;
   background: var(--bg-surface);
@@ -325,6 +344,11 @@ h3 {
   font-weight: 500;
 }
 
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .btn-ghost {
   padding: 9px 18px;
   background: transparent;
@@ -333,6 +357,11 @@ h3 {
   border: 1px solid transparent;
   font-size: 13px;
   font-weight: 500;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .btn-danger {
