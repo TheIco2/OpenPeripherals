@@ -1,0 +1,203 @@
+<div class="page-content">
+  <div class="page">
+    <div class="page-header">
+      <span class="page-header-label">Reverse Engineering</span>
+      <h1>AI Signal Learning</h1>
+      <p class="subtitle">Reverse-engineer USB device protocols with guided AI assistance</p>
+    </div>
+
+    <div id="setup-sections">
+    <div class="setup-section">
+      <h2><div class="step-number">1</div> Select Device</h2>
+      <p class="hint">Choose the peripheral you want to learn. It must be connected via USB.</p>
+      <div class="device-selector" id="ai-device-selector">
+        <div class="empty-state">
+          <div class="empty-state-icon">U</div>
+          <p>Connect a USB device to get started</p>
+          <p class="hint">Plug in any USB peripheral and click Scan on the Devices page</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <h2><div class="step-number">2</div> Device Type</h2>
+      <p class="hint">What kind of peripheral is this? Select the closest match.</p>
+      <div class="type-selector">
+          <button class="type-btn" data-type="keyboard" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"keyboard"}'>Keyboard</button>
+          <button class="type-btn" data-type="mouse" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"mouse"}'>Mouse</button>
+          <button class="type-btn" data-type="headset" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"headset"}'>Headset</button>
+          <button class="type-btn" data-type="mousepad" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"mousepad"}'>Mouse Pad</button>
+          <button class="type-btn" data-type="light" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"light"}'>Smart Light</button>
+          <button class="type-btn" data-type="monitor" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"monitor"}'>Monitor</button>
+          <button class="type-btn" data-type="controller" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"controller"}'>Controller</button>
+          <button class="type-btn" data-type="other" data-action="ipc" data-ns="ai" data-cmd="select-type" data-args='{"type":"other"}'>Other</button>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <h2><div class="step-number">3</div> Start Session</h2>
+      <p class="hint">The AI will guide you through a series of interactive steps. At each step you will be asked to change a setting on the device while USB signals are captured and analyzed.</p>
+      <div class="actions-bar">
+        <button class="btn-primary" id="btn-start-session" data-action="ipc" data-ns="ai" data-cmd="start-session">Start Learning Session</button>
+      </div>
+    </div>
+    </div>
+
+    <div class="session-panel" id="session-overlay" style="display: none;">
+
+        <!-- =============== QUESTIONNAIRE PANEL =============== -->
+        <div id="questionnaire-panel" style="display: none;">
+          <div class="session-header">
+            <h2>About Your Device</h2>
+            <div class="step-indicator">
+              <span id="q-current">1</span>
+              <span class="step-divider">/</span>
+              <span id="q-total">3</span>
+            </div>
+          </div>
+
+          <div class="session-state-badge">Quick Setup</div>
+
+          <div class="instruction-card">
+            <p class="instruction-text" id="question-text">Loading questions...</p>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="q-progress-fill"></div>
+          </div>
+
+          <div class="session-buttons">
+            <button class="btn-primary" data-action="ipc" data-ns="ai" data-cmd="answer-yes">Yes</button>
+            <button class="btn-ghost" data-action="ipc" data-ns="ai" data-cmd="answer-no">No</button>
+            <button class="btn-ghost btn-danger" data-action="ipc" data-ns="ai" data-cmd="cancel">Cancel</button>
+          </div>
+        </div>
+
+        <!-- =============== LEARNING PANEL =============== -->
+        <div id="learning-panel" style="display: none;">
+        <div class="session-header">
+          <h2>Active Session</h2>
+          <div class="step-indicator">
+            <span class="step-current" id="step-current">1</span>
+            <span class="step-divider">/</span>
+            <span class="step-total" id="step-total">12</span>
+          </div>
+        </div>
+
+        <div class="session-state-badge" id="session-state-badge">Waiting</div>
+
+        <div class="instruction-card" id="instruction-card">
+          <p class="instruction-text" id="instruction-text">Waiting for instructions...</p>
+        </div>
+
+        <div class="signal-info" id="signal-info">
+          <div class="signal-info-row">
+            <span class="signal-label">Category</span>
+            <span class="signal-value" id="signal-category">—</span>
+          </div>
+          <div class="signal-info-row">
+            <span class="signal-label">Capture Mode</span>
+            <span class="signal-value" id="signal-capture-mode">—</span>
+          </div>
+        </div>
+
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="advanced-toggle-row">
+          <button class="btn-ghost btn-sm" id="btn-advanced-toggle" data-action="ipc" data-ns="ai" data-cmd="toggle-advanced">Show Advanced</button>
+        </div>
+
+        <div class="advanced-panel" id="advanced-panel" style="display: none;">
+          <div class="advanced-grid">
+            <div class="advanced-item">
+              <span class="advanced-key">Step ID</span>
+              <span class="advanced-val" id="adv-step-id">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Capture Duration</span>
+              <span class="advanced-val" id="adv-capture-duration">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Capture During Action</span>
+              <span class="advanced-val" id="adv-capture-during">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Session State</span>
+              <span class="advanced-val" id="adv-session-state">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Steps Completed</span>
+              <span class="advanced-val" id="adv-steps-done">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Total Steps</span>
+              <span class="advanced-val" id="adv-steps-total">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Reports Captured</span>
+              <span class="advanced-val" id="adv-capture-count">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Feature Probes</span>
+              <span class="advanced-val" id="adv-feature-probes">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Interrupt Reads</span>
+              <span class="advanced-val" id="adv-interrupt-reads">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Interfaces Found</span>
+              <span class="advanced-val" id="adv-ifaces-found">—</span>
+            </div>
+            <div class="advanced-item">
+              <span class="advanced-key">Interfaces Opened</span>
+              <span class="advanced-val" id="adv-ifaces-opened">—</span>
+            </div>
+            <div class="advanced-item" style="grid-column: 1 / -1;">
+              <span class="advanced-key">Interface Details</span>
+              <span class="advanced-val" id="adv-iface-details" style="white-space: pre-wrap; font-size: 11px;">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-buttons">
+          <button class="btn-primary" id="btn-ready" data-action="ipc" data-ns="ai" data-cmd="continue">Continue</button>
+          <button class="btn-ghost" id="btn-skip" data-action="ipc" data-ns="ai" data-cmd="skip">Skip Step</button>
+          <button class="btn-ghost btn-danger" id="btn-cancel-session" data-action="ipc" data-ns="ai" data-cmd="cancel">Cancel</button>
+        </div>
+        </div>
+
+        <!-- =============== VERIFICATION PANEL =============== -->
+        <div id="verification-panel" style="display: none;">
+          <div class="session-header">
+            <h2>Verify Results</h2>
+            <div class="step-indicator">
+              <span id="v-current">1</span>
+              <span class="step-divider">/</span>
+              <span id="v-total">1</span>
+            </div>
+          </div>
+
+          <div class="session-state-badge" id="verify-state-badge">Testing</div>
+
+          <div class="instruction-card">
+            <p class="instruction-text" id="verify-pattern-name" style="font-weight: 600; margin-bottom: 8px;">set_rgb</p>
+            <p class="instruction-text" id="verify-description">Did the device setting change?</p>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="v-progress-fill"></div>
+          </div>
+
+          <div class="session-buttons">
+            <button class="btn-primary" data-action="ipc" data-ns="ai" data-cmd="verify-yes">Yes, it worked!</button>
+            <button class="btn-ghost" data-action="ipc" data-ns="ai" data-cmd="verify-no">No change</button>
+            <button class="btn-ghost btn-danger" data-action="ipc" data-ns="ai" data-cmd="cancel">Cancel</button>
+          </div>
+        </div>
+
+    </div>
+  </div>
+</div>

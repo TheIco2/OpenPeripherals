@@ -174,6 +174,7 @@ impl OtdBridge {
             signals: std::collections::HashMap::new(),
             hid_interfaces,
             notes: Some("Imported from OpenTabletDriver configuration database".to_string()),
+            learning_log: Vec::new(),
         }
     }
 

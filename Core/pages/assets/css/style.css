@@ -819,6 +819,62 @@ label {
 }
 
 
+/* ── Device Edit / Control ──────────────────────────────────────────── */
+
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.control-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.control-card-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.control-confidence {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.control-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.control-presets .btn-sm {
+  min-width: 64px;
+}
+
+.device-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.device-card-clickable:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+
 /* ── AI Learning ────────────────────────────────────────────────────── */
 
 .setup-section {
@@ -880,14 +936,107 @@ label {
   color: var(--accent-text);
 }
 
-.session-area {
+.session-panel {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 24px;
+  padding: 32px;
   background: var(--bg-surface);
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-lg);
+}
+
+.session-state-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--accent);
+  color: var(--bg-base);
+}
+
+.session-state-badge.capturing {
+  background: var(--text-warning, #e8a435);
+  color: var(--bg-base);
+}
+
+.session-state-badge.analyzing {
+  background: var(--text-info, #5e9ed6);
+  color: var(--bg-base);
+}
+
+.signal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+}
+
+.signal-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.signal-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.signal-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.advanced-toggle-row {
+  display: flex;
+}
+
+.btn-sm {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.advanced-panel {
+  padding: 14px 16px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+}
+
+.advanced-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.advanced-key {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.advanced-val {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
 }
 
 .step-indicator {
@@ -936,6 +1085,45 @@ label {
 
 .device-selector {
   min-height: 48px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.device-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.device-option:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-surface-2);
+}
+
+.device-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.device-option-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.device-option-id {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 .session-header {

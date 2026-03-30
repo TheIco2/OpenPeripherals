@@ -1,16 +1,24 @@
-// op-core/src/logging.rs
+// logging.rs — Universal drop-in logger for ProjectOpen applications.
 //
-// Async file-based logger
+// Logs are written to:
+//   ~/ProjectOpen/.Logs/<app_name>/<segment>/<date>_<app_name>_<segment>.log
 //
-// Implements the `log` crate's `Log` trait so every `log::info!()`, `log::warn!()`,
-// etc. throughout the codebase is captured and written to:
+// A new log file is created each day. The background writer thread handles
+// I/O so logging never blocks the main/render thread.
 //
-//   ~/ProjectOpen/.Logs/OpenPeripheral/<source>/OpenPeripheral.log
+// Implements `log::Log` so crates using `log::info!()` etc. are captured.
+// Also exports `info!`, `warn!`, `error!` macros for direct use.
 //
-// A background writer thread handles I/O so logging never blocks the render loop.
+// Usage:
+//   ```rust
+//   mod logging;
+//   // ...
+//   logging::init("OpenDesktop", "Core", cfg!(debug_assertions));
+//   info!("Hello from Core");
+//   ```
 
 use std::{
-    fs::OpenOptions,
+    fs::{self, OpenOptions},
     io::Write,
     path::PathBuf,
     sync::{
@@ -24,63 +32,49 @@ use std::{
 use chrono;
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
-/* =========================
-   GLOBAL STATE
-   ========================= */
+// ---------------------------------------------------------------------------
+// Global state
+// ---------------------------------------------------------------------------
 
-/// Whether debug-level messages are enabled (set at init).
+/// Whether debug-level messages are enabled.
 static DEBUG_ENABLED: AtomicBool = AtomicBool::new(false);
-
-/// Resolved log file path.
-static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
-
-/// Source identifier for log directory separation.
-static LOG_SOURCE: OnceLock<String> = OnceLock::new();
 
 /// Sender for the background writer thread.
 static LOG_TX: OnceLock<Sender<String>> = OnceLock::new();
 
 /// Singleton logger instance (required by `log::set_logger`).
-static LOGGER: OpenPeripheralLogger = OpenPeripheralLogger;
+static LOGGER: ProjectOpenLogger = ProjectOpenLogger;
 
-/* =========================
-   PUBLIC API
-   ========================= */
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-/// Initialise the OpenPeripheral logger.
+/// Initialise the logger.
 ///
-/// - `source`: identifies the binary ("App", "Server", "Dev", etc.).
-///   Logs are written to `~/ProjectOpen/.Logs/OpenPeripheral/<source>/OpenPeripheral.log`.
-/// - `debug`: if `true`, captures `Debug`-level and above; otherwise `Warn` and above.
+/// - `app_name`: application name (e.g. "OpenDesktop", "OpenPeripheral").
+/// - `segment`: component name (e.g. "Core", "Wallpaper", "Server").
+/// - `debug`: if true, captures Debug-level and above; otherwise Warn and above.
 ///
-/// Call once at startup before any `log::` macros. Panics if called more than once.
-pub fn init(source: &str, debug: bool) {
+/// Call once at startup. Panics if called more than once.
+pub fn init(app_name: &str, segment: &str, debug: bool) {
     if LOG_TX.get().is_some() {
         panic!("logging::init() called more than once");
     }
 
     DEBUG_ENABLED.store(debug, Ordering::Relaxed);
-    LOG_SOURCE.set(source.to_owned()).expect("LOG_SOURCE already set");
 
-    let path = log_path().clone();
+    let app = app_name.to_owned();
+    let seg = segment.to_owned();
+
     let (tx, rx) = mpsc::channel::<String>();
     LOG_TX.set(tx).expect("LOG_TX already set");
 
-    // Background writer thread — keeps file I/O off the render thread.
+    // Background writer thread with daily rotation.
     thread::spawn(move || {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .expect("Failed to open log file");
-
-        while let Ok(line) = rx.recv() {
-            let _ = writeln!(file, "{line}");
-            let _ = file.flush();
-        }
+        writer_loop(&app, &seg, rx);
     });
 
-    // Register as the global `log` backend.
+    // Register as the global `log` crate backend.
     let max_level = if debug {
         LevelFilter::Debug
     } else {
@@ -92,19 +86,46 @@ pub fn init(source: &str, debug: bool) {
         .expect("Failed to set logger");
 }
 
-/// Returns `true` if debug-level logging is active.
+/// Returns true if debug-level logging is active.
 #[inline]
-pub fn debug_enabled() -> bool {
+pub fn enabled() -> bool {
     DEBUG_ENABLED.load(Ordering::Relaxed)
 }
 
-/* =========================
-   log::Log IMPLEMENTATION
-   ========================= */
+/// Returns true if a message at the given level should be logged.
+#[inline]
+pub fn should_log(level: &str) -> bool {
+    if !DEBUG_ENABLED.load(Ordering::Relaxed) {
+        return level == "WARN" || level == "ERROR";
+    }
+    true
+}
 
-struct OpenPeripheralLogger;
+/// Set debug mode at runtime.
+pub fn set_debug(debug: bool) {
+    DEBUG_ENABLED.store(debug, Ordering::Relaxed);
+    let max_level = if debug { LevelFilter::Debug } else { LevelFilter::Warn };
+    log::set_max_level(max_level);
+}
 
-impl Log for OpenPeripheralLogger {
+/// Enqueue a log message to the background writer.
+#[inline]
+pub fn enqueue(level: &str, msg: String) {
+    if let Some(tx) = LOG_TX.get() {
+        let ts = chrono::Local::now()
+            .format("%Y-%m-%d %H:%M:%S%.3f")
+            .to_string();
+        let _ = tx.send(format!("{ts} [{level}] {msg}"));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// log::Log implementation
+// ---------------------------------------------------------------------------
+
+struct ProjectOpenLogger;
+
+impl Log for ProjectOpenLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         if DEBUG_ENABLED.load(Ordering::Relaxed) {
             metadata.level() <= Level::Debug
@@ -129,61 +150,108 @@ impl Log for OpenPeripheralLogger {
         enqueue(&level.to_string(), msg);
     }
 
-    fn flush(&self) {
-        // The background thread flushes after every write.
-    }
+    fn flush(&self) {}
 }
 
-/* =========================
-   INTERNAL
-   ========================= */
+// ---------------------------------------------------------------------------
+// Macros
+// ---------------------------------------------------------------------------
 
-#[inline]
-fn enqueue(level: &str, msg: String) {
-    if let Some(tx) = LOG_TX.get() {
-        let ts = timestamp();
-        let _ = tx.send(format!("{ts} [{level}] {msg}"));
-    }
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)*) => {{
+        if $crate::logging::should_log("INFO") {
+            $crate::logging::enqueue("INFO", format!($($arg)*));
+        }
+    }};
 }
 
-fn timestamp() -> String {
-    let now = chrono::Local::now();
-    now.format("%Y-%m-%d %H:%M:%S%.3f").to_string()
+#[macro_export]
+macro_rules! warn {
+    ($($arg:tt)*) => {{
+        $crate::logging::enqueue("WARN", format!($($arg)*));
+    }};
 }
 
-/* =========================
-   PATH RESOLUTION
-   ========================= */
+#[macro_export]
+macro_rules! error {
+    ($($arg:tt)*) => {{
+        $crate::logging::enqueue("ERROR", format!($($arg)*));
+    }};
+}
 
-fn log_path() -> &'static PathBuf {
-    LOG_PATH.get_or_init(|| {
-        let logs_dir = resolve_logs_dir().unwrap_or_else(|| {
-            // Fallback: logs/ next to the executable.
+// ---------------------------------------------------------------------------
+// Background writer with daily rotation
+// ---------------------------------------------------------------------------
+
+/// Resolve the logs base directory:
+/// `~/ProjectOpen/.Logs/<app_name>/<segment>/`
+fn logs_dir(app_name: &str, segment: &str) -> PathBuf {
+    let home = std::env::var("USERPROFILE")
+        .ok()
+        .or_else(|| {
+            let drive = std::env::var("HOMEDRIVE").ok()?;
+            let path = std::env::var("HOMEPATH").ok()?;
+            Some(format!("{drive}{path}"))
+        })
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            // Fallback: next to exe
             std::env::current_exe()
                 .ok()
-                .and_then(|p| p.parent().map(|d| d.join("logs")))
-                .unwrap_or_else(|| PathBuf::from("logs"))
+                .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+                .unwrap_or_else(|| PathBuf::from("."))
         });
 
-        let _ = std::fs::create_dir_all(&logs_dir);
-        logs_dir.join("OpenPeripheral.log")
-    })
+    home.join("ProjectOpen")
+        .join(".Logs")
+        .join(app_name)
+        .join(segment)
 }
 
-/// Resolve `~/ProjectOpen/.Logs/OpenPeripheral/<source>/` using environment variables.
-fn resolve_logs_dir() -> Option<PathBuf> {
-    let home = std::env::var("USERPROFILE").ok().or_else(|| {
-        let drive = std::env::var("HOMEDRIVE").ok()?;
-        let path = std::env::var("HOMEPATH").ok()?;
-        Some(format!("{drive}{path}"))
-    })?;
+/// Build the log filename for a given date:
+/// `<date>_<app_name>_<segment>.log`
+fn log_filename(app_name: &str, segment: &str, date: &str) -> String {
+    format!("{date}_{app_name}_{segment}.log")
+}
 
-    let source = LOG_SOURCE.get().map(|s| s.as_str()).unwrap_or("App");
+/// Background writer loop. Opens a new file each day.
+fn writer_loop(app_name: &str, segment: &str, rx: mpsc::Receiver<String>) {
+    let dir = logs_dir(app_name, segment);
+    let _ = fs::create_dir_all(&dir);
 
-    let logs = PathBuf::from(home)
-        .join("ProjectOpen")
-        .join(".Logs")
-        .join("OpenPeripheral")
-        .join(source);
-    Some(logs)
+    let mut current_date = today();
+    let mut file = open_log_file(&dir, app_name, segment, &current_date);
+
+    while let Ok(line) = rx.recv() {
+        let now_date = today();
+        if now_date != current_date {
+            // Day changed — rotate to a new file.
+            current_date = now_date;
+            file = open_log_file(&dir, app_name, segment, &current_date);
+        }
+
+        if let Some(ref mut f) = file {
+            let _ = writeln!(f, "{line}");
+            let _ = f.flush();
+        }
+    }
+}
+
+fn open_log_file(
+    dir: &PathBuf,
+    app_name: &str,
+    segment: &str,
+    date: &str,
+) -> Option<fs::File> {
+    let path = dir.join(log_filename(app_name, segment, date));
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .ok()
+}
+
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
 }

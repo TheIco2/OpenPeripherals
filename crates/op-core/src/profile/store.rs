@@ -103,4 +103,24 @@ impl ProfileStore {
     pub fn list(&self) -> Vec<&DeviceProfile> {
         self.cache.values().collect()
     }
+
+    /// Delete a profile by ID (removes from cache and disk).
+    pub fn delete(&mut self, id: &str) -> ProfileResult<()> {
+        self.cache.remove(id);
+
+        // Remove the file from disk (try both yaml and json).
+        for ext in &["yaml", "yml", "json"] {
+            let path = self.base_dir.join(format!("{id}.{ext}"));
+            if path.exists() {
+                std::fs::remove_file(&path)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// The base directory where profiles are stored.
+    pub fn base_dir(&self) -> &std::path::Path {
+        &self.base_dir
+    }
 }

@@ -36,6 +36,117 @@ pub enum StepCategory {
     Custom(String),
 }
 
+impl StepCategory {
+    /// Short stable name for matching / filtering.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Baseline => "baseline",
+            Self::Rgb => "rgb",
+            Self::Dpi => "dpi",
+            Self::PollingRate => "polling_rate",
+            Self::Macro => "macro",
+            Self::Battery => "battery",
+            Self::Equalizer => "equalizer",
+            Self::Sidetone => "sidetone",
+            Self::Brightness => "brightness",
+            Self::Custom(s) => s,
+        }
+    }
+}
+
+/// A yes/no capability question shown before the learning steps begin.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityQuestion {
+    /// Unique question ID (matches the category name it controls).
+    pub id: String,
+    /// The question text shown to the user.
+    pub question: String,
+    /// Which step category to disable when the user answers "no".
+    pub category: StepCategory,
+}
+
+/// Generate the pre-screening questions for a device type.
+pub fn generate_questions(device_type: &DeviceType) -> Vec<CapabilityQuestion> {
+    match device_type {
+        DeviceType::Keyboard => vec![
+            CapabilityQuestion {
+                id: "rgb".into(),
+                question: "Does your keyboard have RGB or backlight lighting?".into(),
+                category: StepCategory::Rgb,
+            },
+            CapabilityQuestion {
+                id: "macro".into(),
+                question: "Does your keyboard have dedicated macro keys?".into(),
+                category: StepCategory::Macro,
+            },
+            CapabilityQuestion {
+                id: "polling_rate".into(),
+                question: "Can you change your keyboard's polling rate?".into(),
+                category: StepCategory::PollingRate,
+            },
+        ],
+        DeviceType::Mouse => vec![
+            CapabilityQuestion {
+                id: "rgb".into(),
+                question: "Does your mouse have RGB lighting?".into(),
+                category: StepCategory::Rgb,
+            },
+            CapabilityQuestion {
+                id: "dpi".into(),
+                question: "Can you adjust your mouse's DPI / sensitivity?".into(),
+                category: StepCategory::Dpi,
+            },
+            CapabilityQuestion {
+                id: "polling_rate".into(),
+                question: "Can you change the polling rate?".into(),
+                category: StepCategory::PollingRate,
+            },
+        ],
+        DeviceType::Headset => vec![
+            CapabilityQuestion {
+                id: "rgb".into(),
+                question: "Does your headset have RGB lighting?".into(),
+                category: StepCategory::Rgb,
+            },
+            CapabilityQuestion {
+                id: "equalizer".into(),
+                question: "Can you adjust an equalizer / EQ presets?".into(),
+                category: StepCategory::Equalizer,
+            },
+            CapabilityQuestion {
+                id: "sidetone".into(),
+                question: "Does your headset have sidetone / mic monitoring?".into(),
+                category: StepCategory::Sidetone,
+            },
+        ],
+        DeviceType::MousePad => vec![
+            CapabilityQuestion {
+                id: "rgb".into(),
+                question: "Does your mouse pad have RGB lighting?".into(),
+                category: StepCategory::Rgb,
+            },
+            CapabilityQuestion {
+                id: "brightness".into(),
+                question: "Can you adjust the brightness separately from color?".into(),
+                category: StepCategory::Brightness,
+            },
+        ],
+        _ => Vec::new(), // No questions for other types; show all steps.
+    }
+}
+
+/// Filter guided steps, removing any whose category is in `disabled`.
+pub fn filter_steps(steps: Vec<GuidedStep>, disabled: &[String]) -> Vec<GuidedStep> {
+    steps
+        .into_iter()
+        .filter(|s| {
+            // Always keep Baseline.
+            matches!(s.category, StepCategory::Baseline)
+                || !disabled.contains(&s.category.name().to_string())
+        })
+        .collect()
+}
+
 /// Generate a list of guided steps for a given device type.
 pub fn generate_guide(device_type: &DeviceType) -> Vec<GuidedStep> {
     let mut steps = vec![

@@ -53,19 +53,97 @@ pub struct EnumVariant {
 }
 
 /// Compare two sets of captured reports and find bytes that changed.
+///
+/// Feature reports are matched by their report ID (first byte) and data length.
+/// Vendor responses are matched by their `match_key` (interface + command ID).
+/// Interrupt/other reports are matched positionally within their own group.
 pub fn diff_reports(baseline: &[CapturedReport], changed: &[CapturedReport]) -> Vec<ByteDiff> {
+    use super::SignalDirection;
     let mut diffs = Vec::new();
 
-    // Compare reports pairwise (same index)
-    for (i, (base, chg)) in baseline.iter().zip(changed.iter()).enumerate() {
-        if base.direction != chg.direction {
-            continue;
+    // Phase 1: match FeatureReports by (report_id, data_length).
+    let base_features: Vec<_> = baseline
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.direction == SignalDirection::FeatureReport && !r.data.is_empty())
+        .collect();
+    let chg_features: Vec<_> = changed
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.direction == SignalDirection::FeatureReport && !r.data.is_empty())
+        .collect();
+
+    for &(bi, base) in &base_features {
+        let report_id = base.data[0];
+        let base_len = base.data.len();
+        // Find matching feature report in the changed set.
+        if let Some(&(_, chg)) = chg_features.iter().find(|(_, r)| {
+            r.data.len() == base_len && r.data[0] == report_id
+        }) {
+            for offset in 1..base_len {
+                if base.data[offset] != chg.data[offset] {
+                    diffs.push(ByteDiff {
+                        report_index: bi,
+                        offset,
+                        old_value: base.data[offset],
+                        new_value: chg.data[offset],
+                    });
+                }
+            }
         }
+    }
+
+    // Phase 2: match VendorResponse reports by match_key.
+    let base_vendor: Vec<_> = baseline
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.direction == SignalDirection::VendorResponse && r.match_key.is_some())
+        .collect();
+    let chg_vendor: Vec<_> = changed
+        .iter()
+        .filter(|r| r.direction == SignalDirection::VendorResponse && r.match_key.is_some())
+        .collect();
+
+    for &(bi, base) in &base_vendor {
+        let key = base.match_key.as_ref().unwrap();
+        if let Some(chg) = chg_vendor.iter().find(|r| r.match_key.as_ref() == Some(key)) {
+            let len = base.data.len().min(chg.data.len());
+            for offset in 0..len {
+                if base.data[offset] != chg.data[offset] {
+                    diffs.push(ByteDiff {
+                        report_index: bi,
+                        offset,
+                        old_value: base.data[offset],
+                        new_value: chg.data[offset],
+                    });
+                }
+            }
+        }
+    }
+
+    // Phase 3: positionally diff non-feature, non-vendor reports (interrupt reads).
+    let base_other: Vec<_> = baseline
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| {
+            r.direction != SignalDirection::FeatureReport
+                && r.direction != SignalDirection::VendorResponse
+        })
+        .collect();
+    let chg_other: Vec<_> = changed
+        .iter()
+        .filter(|r| {
+            r.direction != SignalDirection::FeatureReport
+                && r.direction != SignalDirection::VendorResponse
+        })
+        .collect();
+
+    for (&(bi, base), chg) in base_other.iter().zip(chg_other.iter()) {
         let len = base.data.len().min(chg.data.len());
         for offset in 0..len {
             if base.data[offset] != chg.data[offset] {
                 diffs.push(ByteDiff {
-                    report_index: i,
+                    report_index: bi,
                     offset,
                     old_value: base.data[offset],
                     new_value: chg.data[offset],

@@ -16,11 +16,10 @@ pub struct AppState {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    op_core::logging::init("Server", cfg!(debug_assertions));
+    op_core::logging::init("OpenPeripheral", "Server", cfg!(debug_assertions));
 
-    let data_dir = dirs::data_local_dir()
+    let data_dir = op_core::installer::app_root("OpenPeripheral")
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("OpenPeripheral")
         .join("server");
 
     std::fs::create_dir_all(&data_dir)?;

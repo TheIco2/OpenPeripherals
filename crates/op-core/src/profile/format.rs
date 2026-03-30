@@ -33,6 +33,9 @@ pub struct DeviceProfile {
     pub hid_interfaces: Vec<HidInterfaceConfig>,
     /// Free-form notes (e.g., from AI learning session).
     pub notes: Option<String>,
+    /// Diagnostic log from AI learning (empty if not AI-generated).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub learning_log: Vec<String>,
 }
 
 /// Configuration for a specific HID interface on the device.

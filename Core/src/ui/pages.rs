@@ -34,3 +34,8 @@ pub fn profiles_page() -> PathBuf {
 pub fn settings_page() -> PathBuf {
     pages_dir().join("settings.html")
 }
+
+#[allow(dead_code)]
+pub fn device_edit_page() -> PathBuf {
+    pages_dir().join("device_edit.html")
+}

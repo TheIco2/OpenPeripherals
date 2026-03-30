@@ -4,9 +4,8 @@ members = [
     "crates/op-addon",
     "crates/op-ai",
     "crates/op-sdk",
-    "app",
+    "Core",
     "Server",
-    "Development",
 ]
 resolver = "2"
 

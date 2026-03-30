@@ -3,6 +3,8 @@
 mod icon;
 mod ui;
 
+use op_core::installer;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -14,13 +16,28 @@ use op_core::device::DeviceRegistry;
 use op_core::profile::ProfileStore;
 
 fn data_dir() -> PathBuf {
-    dirs::data_local_dir()
+    installer::app_root("OpenPeripheral")
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("OpenPeripheral")
 }
 
 fn main() -> Result<()> {
-    op_core::logging::init("App", cfg!(debug_assertions));
+    op_core::logging::init("OpenPeripheral", "App", cfg!(debug_assertions));
+
+    // Bootstrap: create ~/ProjectOpen/OpenPeripheral/ directory structure.
+    // Self-install is disabled — OpenPeripheral runs from its build/install location.
+    let config = installer::InstallerConfig::core("OpenPeripheral")
+        .subdirs(&["profiles", "addons"])
+        .no_self_install();
+
+    fn log_fn(level: installer::LogLevel, msg: &str) {
+        match level {
+            installer::LogLevel::Info  => log::info!("{}", msg),
+            installer::LogLevel::Warn  => log::warn!("{}", msg),
+            installer::LogLevel::Error => log::error!("{}", msg),
+        }
+    }
+
+    installer::bootstrap(&config, log_fn);
 
     // Install a panic hook that logs the crash before the process terminates.
     // Without this, windows_subsystem = "windows" silently kills the process.
@@ -75,7 +92,7 @@ fn main() -> Result<()> {
         device_registry.count(),
     );
 
-    // Launch the CanvasX UI
+    // Launch the OpenRender UI
     ui::launch(device_registry, profile_store, addon_registry)?;
 
     Ok(())
