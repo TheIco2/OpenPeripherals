@@ -1,5 +1,7 @@
 # OpenPeripheral
 
+> WARNING: THIS APPLICATION IS CURRENTLY IN VERY EARLY STAGES OF DEVELOPEMENT AND MAY NOT WORK AS INTENDED AND GIVEN ITS NATURE AS A PERIPHERAL CONTROLLER CAN POTENTIALLY TURN YOUR PERIPHERALS INTO EXPENSIVE PAPER WEIGHTS
+
 **Open-source universal peripheral customization software.**
 
 Customize all your peripherals — keyboards, mice, headsets, mouse pads, smart lights — from any brand, through a single unified interface. Built in Rust with a [OpenRender](https://github.com/The-Ico2/OpenRender) GPU-native UI.
